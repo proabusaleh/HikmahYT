@@ -17,7 +17,8 @@ from ui.widgets import (
 from downloader import DownloadEngine
 from utils.helpers import (
     is_valid_url, is_playlist_url, format_size, 
-    format_duration, format_views, get_default_download_path
+    format_duration, format_views, get_default_download_path,
+    get_site_name
 )
 
 
@@ -28,7 +29,7 @@ class HikmahYTApp(ctk.CTk):
         super().__init__()
         
         # Window setup
-        self.title("HikmahYT - YouTube Downloader")
+        self.title("HikmahYT - Video Downloader")
         self.geometry(f"{DIMENSIONS['window_width']}x{DIMENSIONS['window_height']}")
         self.minsize(DIMENSIONS['min_width'], DIMENSIONS['min_height'])
         self.configure(fg_color=COLORS["bg_dark"])
@@ -176,7 +177,7 @@ class HikmahYTApp(ctk.CTk):
         
         ctk.CTkLabel(
             header,
-            text="Paste a YouTube URL to get started",
+            text="Paste a URL from YouTube, Facebook, TikTok, Telegram & more",
             font=("Segoe UI", 14),
             text_color=COLORS["text_muted"],
         ).pack(anchor="w", pady=(5, 0))
@@ -195,7 +196,7 @@ class HikmahYTApp(ctk.CTk):
         # URL Entry
         self.url_entry = ModernEntry(
             input_inner,
-            placeholder="Paste YouTube URL here...",
+            placeholder="Paste video URL here...",
             icon="🔗",
         )
         self.url_entry.pack(fill="x", pady=(0, 15))
@@ -390,7 +391,7 @@ class HikmahYTApp(ctk.CTk):
         
         self.playlist_url_entry = ModernEntry(
             input_inner,
-            placeholder="Paste YouTube playlist URL here...",
+            placeholder="Paste playlist URL here...",
             icon="📋",
         )
         self.playlist_url_entry.pack(fill="x", pady=(0, 15))
@@ -557,9 +558,11 @@ class HikmahYTApp(ctk.CTk):
         LogoWidget(about_inner, size="medium").pack(anchor="w", pady=(0, 10))
         
         about_text = (
-            "HikmahYT is a modern, feature-rich YouTube video downloader.\n"
+            "HikmahYT is a modern, feature-rich video downloader.\n"
             "Built with Python, CustomTkinter, and yt-dlp.\n\n"
             "Features:\n"
+            "• Download videos from YouTube, Facebook, TikTok, Telegram\n"
+            "  Instagram, Twitter/X, Twitch, Vimeo and 1000+ more sites\n"
             "• Download videos in multiple qualities (360p - 4K)\n"
             "• Extract audio as MP3 (128kbps - 320kbps)\n"
             "• Full playlist support with selective download\n"
@@ -647,7 +650,7 @@ class HikmahYTApp(ctk.CTk):
             return
         
         if not is_valid_url(url):
-            self._set_status("❌ Invalid YouTube URL", "error")
+            self._set_status("❌ Invalid or unsupported URL", "error")
             return
         
         self._clear_results()
@@ -660,7 +663,7 @@ class HikmahYTApp(ctk.CTk):
             self.engine.fetch_playlist_info(url)
             return
         
-        self._set_status("⏳ Fetching video information...", "info")
+        self._set_status(f"⏳ Fetching {get_site_name(url)} video information...", "info")
         self.fetch_btn.configure(state="disabled", text="⏳  Analyzing...")
         
         # Show loading

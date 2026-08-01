@@ -1,0 +1,35 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Build output
+build/
+dist/
+
+# PyInstaller spec is a source file - do NOT ignore HikmahYT.spec
+
+# Test / sample files
+*.mp4
+*.mkv
+*.webm
+*.avi
+*.mov
+*.mp3
+*.flac
+
+# IDE / OS
+.vscode/
+.idea/
+*.swp
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log

@@ -80,17 +80,53 @@ def sanitize_filename(filename):
 
 
 def is_valid_url(url):
-    """Check if URL is a valid YouTube URL."""
-    patterns = [
-        r'(https?://)?(www\.)?youtube\.com/watch\?v=[\w-]+',
-        r'(https?://)?(www\.)?youtube\.com/playlist\?list=[\w-]+',
-        r'(https?://)?(www\.)?youtu\.be/[\w-]+',
-        r'(https?://)?(www\.)?youtube\.com/shorts/[\w-]+',
-        r'(https?://)?(www\.)?youtube\.com/@[\w-]+',
-        r'(https?://)?(www\.)?youtube\.com/channel/[\w-]+',
-    ]
-    
-    return any(re.match(pattern, url) for pattern in patterns)
+    """Check if URL is plausibly a video URL for a supported site."""
+    if not url or not isinstance(url, str):
+        return False
+    url = url.strip()
+    if len(url) < 10:
+        return False
+    pattern = r'^https?://[^\s/$.?#][^\s]*$'
+    if not re.match(pattern, url):
+        return False
+    try:
+        from urllib.parse import urlparse
+        host = urlparse(url).netloc
+        return bool(host) and '.' in host
+    except Exception:
+        return False
+
+
+SITE_NAMES = [
+    ("youtube.com", "YouTube"), ("youtu.be", "YouTube"),
+    ("facebook.com", "Facebook"), ("fb.watch", "Facebook"), ("fb.com", "Facebook"),
+    ("tiktok.com", "TikTok"),
+    ("t.me", "Telegram"),
+    ("instagram.com", "Instagram"),
+    ("twitter.com", "X (Twitter)"), ("x.com", "X (Twitter)"),
+    ("twitch.tv", "Twitch"),
+    ("vimeo.com", "Vimeo"),
+    ("dailymotion.com", "Dailymotion"),
+    ("reddit.com", "Reddit"),
+    ("soundcloud.com", "SoundCloud"),
+    ("spotify.com", "Spotify"),
+    ("tumblr.com", "Tumblr"),
+    ("bilibili.com", "Bilibili"),
+    ("vk.com", "VK"),
+    ("rutube.ru", "Rutube"),
+    ("ok.ru", "OK.ru"),
+]
+
+
+def get_site_name(url):
+    """Return a friendly platform name for a URL."""
+    if not url:
+        return "video"
+    url = url.strip().lower()
+    for domain, name in SITE_NAMES:
+        if domain in url:
+            return name
+    return "video"
 
 
 def is_playlist_url(url):
