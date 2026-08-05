@@ -1,0 +1,67 @@
+name: Build & Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Build Windows app
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        shell: cmd
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements.txt -r requirements-build.txt
+
+      - name: Build with PyInstaller
+        shell: cmd
+        run: build.bat
+
+      - name: Verify artifacts
+        shell: cmd
+        run: |
+          if not exist "dist\HikmahYT\HikmahYT.exe" exit /b 1
+          if not exist "dist\HikmahYT-v5-pro-win64.zip" exit /b 1
+          echo Artifacts OK
+          dir /s /b dist\HikmahYT\HikmahYT.exe
+          dir /b dist\HikmahYT-v5-pro-win64.zip
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: HikmahYT ${{ github.ref_name }}
+          body: |
+            ## HikmahYT Pro - Windows release
+
+            ### Install
+            1. Download **HikmahYT-v5-pro-win64.zip**
+            2. Extract it anywhere (keep the whole `HikmahYT` folder together)
+            3. Run `HikmahYT.exe` — no Python or other software required
+
+            > First launch may show a Windows SmartScreen warning (the app is not
+            > code-signed). Click **More info → Run anyway** — it appears only once.
+
+            ### What's inside
+            - Single-folder portable app (`HikmahYT.exe` + `_internal`)
+            - Bundled yt-dlp (all extractors), ffmpeg, pycryptodomex
+            - Full usage guide, troubleshooting and legal notice in the repo `README.md`
+          files: |
+            dist/HikmahYT-v5-pro-win64.zip
+          fail_on_unmatched_files: true

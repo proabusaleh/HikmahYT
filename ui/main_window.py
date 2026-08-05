@@ -17,10 +17,12 @@ from ui.widgets import (
 )
 from downloader import DownloadEngine
 from utils.helpers import (
-    is_valid_url, is_playlist_url, format_size, 
+    is_valid_url, is_playlist_url, format_size,
     format_duration, format_views, get_default_download_path,
     get_site_name
 )
+
+APP_VERSION = "5.0.0"
 
 
 class HikmahYTApp(ctk.CTk):
@@ -154,7 +156,7 @@ class HikmahYTApp(ctk.CTk):
         # Version
         ctk.CTkLabel(
             sidebar,
-            text="v1.0.0",
+            text=f"v{APP_VERSION}",
             font=("Segoe UI", 10),
             text_color=COLORS["text_muted"],
         ).pack(side="bottom", pady=(0, 10))

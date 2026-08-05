@@ -7,6 +7,8 @@ Builds a one-folder, windowed (no console) Windows app that bundles:
   - customtkinter, Pillow, requests
 """
 
+import os
+
 from PyInstaller.utils.hooks import collect_submodules
 
 block_cipher = None
