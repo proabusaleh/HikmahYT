@@ -360,7 +360,9 @@ class VideoInfoCard(ctk.CTkFrame):
 class ProgressCard(ctk.CTkFrame):
     """Download progress card."""
     
-    def __init__(self, master, title="", task_id="", **kwargs):
+    def __init__(self, master, title="", task_id="", 
+                 on_pause=None, on_resume=None, on_retry=None, on_skip=None,
+                 **kwargs):
         super().__init__(
             master,
             fg_color=COLORS["bg_card"],
@@ -369,6 +371,10 @@ class ProgressCard(ctk.CTkFrame):
         )
         
         self.task_id = task_id
+        self.on_pause = on_pause
+        self.on_resume = on_resume
+        self.on_retry = on_retry
+        self.on_skip = on_skip
         
         container = ctk.CTkFrame(self, fg_color="transparent")
         container.pack(fill="x", padx=15, pady=12)
@@ -432,11 +438,87 @@ class ProgressCard(ctk.CTkFrame):
             text_color=COLORS["text_muted"],
         )
         self.eta_label.pack(side="right")
+        
+        # Control row: pause / resume toggle
+        control_row = ctk.CTkFrame(container, fg_color="transparent")
+        control_row.pack(fill="x", pady=(8, 0))
+        
+        self._is_paused = False
+        
+        self.toggle_btn = ctk.CTkButton(
+            control_row,
+            text="⏸  Pause",
+            font=("Segoe UI Semibold", 11),
+            fg_color=COLORS["accent_orange"],
+            hover_color="#e55d2b",
+            corner_radius=8,
+            height=28,
+            width=110,
+            text_color="white",
+            command=self._toggle_pause,
+        )
+        self.toggle_btn.pack(side="left")
+        
+        # Error actions: retry / skip (only shown when the task fails)
+        self.retry_btn = ctk.CTkButton(
+            control_row,
+            text="🔄  Retry",
+            font=("Segoe UI Semibold", 11),
+            fg_color=COLORS["accent_blue"],
+            hover_color="#2d8fd4",
+            corner_radius=8,
+            height=28,
+            width=90,
+            text_color="white",
+            command=self._retry,
+        )
+        
+        self.skip_btn = ctk.CTkButton(
+            control_row,
+            text="⏭  Skip",
+            font=("Segoe UI Semibold", 11),
+            fg_color=COLORS["bg_secondary"],
+            hover_color=COLORS["bg_card_hover"],
+            corner_radius=8,
+            height=28,
+            width=90,
+            text_color=COLORS["text_secondary"],
+            command=self._skip,
+        )
     
-    def update_progress(self, progress, speed="", eta="", status="downloading"):
+    def _retry(self):
+        if self.on_retry:
+            self.on_retry()
+    
+    def _skip(self):
+        if self.on_skip:
+            self.on_skip()
+    
+    def _toggle_pause(self):
+        if self._is_paused:
+            if self.on_resume:
+                self.on_resume()
+            self._is_paused = False
+            self.toggle_btn.configure(
+                text="⏸  Pause",
+                fg_color=COLORS["accent_orange"],
+                hover_color="#e55d2b",
+            )
+        else:
+            if self.on_pause:
+                self.on_pause()
+            self._is_paused = True
+            self.toggle_btn.configure(
+                text="▶  Resume",
+                fg_color=COLORS["accent_green"],
+                hover_color="#27ae60",
+            )
+    
+    def update_progress(self, progress=None, speed="", eta="", status="downloading"):
         """Update progress display."""
-        self.progress_bar.set(progress / 100)
-        self.progress_label.configure(text=f"{progress:.1f}%")
+        if progress is not None:
+            self.progress_bar.set(progress / 100)
+            self.progress_label.configure(text=f"{progress:.1f}%")
         
         if speed:
             self.speed_label.configure(text=f"⚡ {speed}")
@@ -449,6 +531,29 @@ class ProgressCard(ctk.CTkFrame):
                 text="⬇️ Downloading",
                 text_color=COLORS["accent_blue"]
             )
+            self._is_paused = False
+            self.toggle_btn.configure(
+                state="normal",
+                text="⏸  Pause",
+                fg_color=COLORS["accent_orange"],
+                hover_color="#e55d2b",
+            )
+            self.retry_btn.pack_forget()
+            self.skip_btn.pack_forget()
+        elif status == "paused":
+            self.status_label.configure(
+                text="⏸ Paused",
+                text_color=COLORS["warning"]
+            )
+            self._is_paused = True
+            self.toggle_btn.configure(
+                state="normal",
+                text="▶  Resume",
+                fg_color=COLORS["accent_green"],
+                hover_color="#27ae60",
+            )
+            self.retry_btn.pack_forget()
+            self.skip_btn.pack_forget()
         elif status == "finished":
             self.status_label.configure(
                 text="✅ Complete",
@@ -457,12 +562,20 @@ class ProgressCard(ctk.CTkFrame):
             self.progress_bar.configure(progress_color=COLORS["accent_green"])
             self.progress_bar.set(1.0)
             self.progress_label.configure(text="100%")
+            self._is_paused = False
+            self.toggle_btn.configure(state="disabled")
+            self.retry_btn.pack_forget()
+            self.skip_btn.pack_forget()
         elif status == "error":
             self.status_label.configure(
                 text="❌ Error",
                 text_color=COLORS["error"]
             )
             self.progress_bar.configure(progress_color=COLORS["error"])
+            self._is_paused = False
+            self.toggle_btn.configure(state="disabled")
+            self.retry_btn.pack(side="left", padx=(8, 0))
+            self.skip_btn.pack(side="left", padx=(8, 0))
 
 
 class PlaylistItemCard(ctk.CTkFrame):
@@ -657,12 +770,15 @@ class QualitySelector(ctk.CTkFrame):
         
         if self.selected_format.get() == "video":
             qualities = [
+                ("8K", "4320", "🌈"),
                 ("4K", "2160", "🟣"),
                 ("2K", "1440", "🔵"),
                 ("1080p", "1080", "🟢"),
                 ("720p", "720", "🟡"),
                 ("480p", "480", "🟠"),
                 ("360p", "360", "🔴"),
+                ("240p", "240", "⚪"),
+                ("144p", "144", "⬜"),
             ]
         else:
             qualities = [
@@ -848,8 +964,9 @@ class FormatSelector(ctk.CTkFrame):
         ).pack(anchor="w", pady=(6, 8))
 
         for label, h in [
-            ("4K", "2160"), ("2K", "1440"), ("1080p", "1080"),
-            ("720p", "720"), ("480p", "480"), ("360p", "360"),
+            ("8K", "4320"), ("4K", "2160"), ("2K", "1440"),
+            ("1080p", "1080"), ("720p", "720"), ("480p", "480"),
+            ("360p", "360"), ("240p", "240"), ("144p", "144"),
         ]:
             frame = ctk.CTkFrame(self, fg_color="transparent")
             frame.pack(fill="x", pady=1)
@@ -1043,6 +1160,162 @@ class FormatSelector(ctk.CTkFrame):
             'format_id': 'best',
             'quality': 'best',
             'audio_only': False,
+        }
+
+
+class DownloadOptionsBar(ctk.CTkFrame):
+    """Advanced download options (container, codecs, thumb, subs, HDR...)."""
+
+    CONTAINERS = ("Auto", "MP4", "MKV", "WebM", "AVI", "MOV", "FLV")
+    CODECS = ("MP3", "AAC", "M4A", "OPUS", "VORBIS", "FLAC", "ALAC", "WAV")
+    VCODECS = ("Auto", "H.264", "H.265/HEVC", "AV1", "VP9", "VP8")
+    FPS = ("Auto", "60fps")
+    SUBS_FMT = ("SRT", "VTT", "ASS", "LRC")
+
+    def __init__(self, master, **kwargs):
+        super().__init__(master, fg_color="transparent", **kwargs)
+
+        ctk.CTkLabel(
+            self,
+            text="⚙️  Options",
+            font=("Segoe UI Semibold", 14),
+            text_color=COLORS["text_primary"],
+        ).pack(anchor="w", pady=(0, 8))
+
+        # Row 1: video codec + container
+        row1 = ctk.CTkFrame(self, fg_color="transparent")
+        row1.pack(fill="x", pady=(0, 8))
+
+        self._create_dropdown(
+            row1, "Video Codec", self.VCODECS, "vcodec_menu"
+        ).pack(side="left", fill="x", expand=True, padx=(0, 10))
+
+        self._create_dropdown(
+            row1, "Container", self.CONTAINERS, "container_menu"
+        ).pack(side="left", fill="x", expand=True)
+
+        # Row 2: audio codec + fps + subtitle format
+        row2 = ctk.CTkFrame(self, fg_color="transparent")
+        row2.pack(fill="x", pady=(0, 8))
+
+        self._create_dropdown(
+            row2, "Audio Codec", self.CODECS, "codec_menu"
+        ).pack(side="left", fill="x", expand=True, padx=(0, 10))
+
+        self._create_dropdown(
+            row2, "FPS", self.FPS, "fps_menu"
+        ).pack(side="left", fill="x", expand=True, padx=(0, 10))
+
+        self._create_dropdown(
+            row2, "Sub Format", self.SUBS_FMT, "subfmt_menu"
+        ).pack(side="left", fill="x", expand=True)
+
+        # Row 3: checkboxes + language
+        row3 = ctk.CTkFrame(self, fg_color="transparent")
+        row3.pack(fill="x", pady=(0, 8))
+
+        self.thumb_var = ctk.BooleanVar(value=False)
+        self.meta_var = ctk.BooleanVar(value=False)
+        self.subs_var = ctk.BooleanVar(value=False)
+        self.embed_subs_var = ctk.BooleanVar(value=False)
+        self.hdr_var = ctk.BooleanVar(value=False)
+        self.json_var = ctk.BooleanVar(value=False)
+
+        for text, var in [
+            ("🖼 Thumbnail", self.thumb_var),
+            ("🏷 Metadata", self.meta_var),
+            ("💬 Subtitles", self.subs_var),
+            ("🔤 Embed Subs", self.embed_subs_var),
+            ("🌞 HDR", self.hdr_var),
+            ("📄 JSON", self.json_var),
+        ]:
+            ctk.CTkCheckBox(
+                row3,
+                text=text,
+                variable=var,
+                font=("Segoe UI", 11),
+                fg_color=COLORS["accent_primary"],
+                hover_color=COLORS["accent_secondary"],
+                border_color=COLORS["border"],
+                text_color=COLORS["text_secondary"],
+                checkbox_width=16,
+                checkbox_height=16,
+                corner_radius=4,
+            ).pack(side="left", padx=(0, 10))
+
+        self.lang_entry = ModernEntry(row3, placeholder="en", icon="🌐")
+        self.lang_entry.configure(width=110)
+        self.lang_entry.pack(side="left")
+        self.lang_entry.insert(0, "en")
+
+    def _create_dropdown(self, master, label, values, attr):
+        frame = ctk.CTkFrame(master, fg_color="transparent")
+
+        ctk.CTkLabel(
+            frame,
+            text=label,
+            font=("Segoe UI", 11),
+            text_color=COLORS["text_muted"],
+        ).pack(anchor="w", pady=(0, 3))
+
+        menu = ctk.CTkOptionMenu(
+            frame,
+            values=list(values),
+            font=("Segoe UI", 11),
+            fg_color=COLORS["bg_secondary"],
+            button_color=COLORS["accent_primary"],
+            button_hover_color=COLORS["accent_secondary"],
+            dropdown_fg_color=COLORS["bg_card"],
+            dropdown_hover_color=COLORS["bg_card_hover"],
+            corner_radius=8,
+            height=30,
+            width=110,
+        )
+        menu.set(values[0])
+        menu.pack(fill="x")
+        setattr(self, attr, menu)
+        return frame
+
+    def get_settings(self):
+        """Return engine-compatible download options."""
+        container = self.container_menu.get().strip().lower()
+        codec = self.codec_menu.get().strip().lower()
+        lang = self.lang_entry.get().strip() or "en"
+
+        vcodec = self.vcodec_menu.get().strip()
+        if vcodec == "H.265/HEVC":
+            vcodec = "h265"
+        elif vcodec == "H.264":
+            vcodec = "h264"
+        elif vcodec == "AV1":
+            vcodec = "av1"
+        elif vcodec == "VP9":
+            vcodec = "vp9"
+        elif vcodec == "VP8":
+            vcodec = "vp8"
+        else:
+            vcodec = ""
+
+        fps = self.fps_menu.get().strip()
+        fps60 = fps == "60fps"
+
+        sub_format = self.subfmt_menu.get().strip().lower()
+        if sub_format == "srt":
+            sub_format = ""
+
+        return {
+            'container': '' if container == 'auto' else container,
+            'audio_codec': codec if codec in ('mp3', 'aac', 'm4a', 'opus', 'vorbis', 'flac', 'alac', 'wav') else 'mp3',
+            'download_thumb': self.thumb_var.get(),
+            'embed_meta': self.meta_var.get(),
+            'download_subs': self.subs_var.get(),
+            'subs_langs': lang,
+            'embed_subs': self.embed_subs_var.get(),
+            'codec': vcodec,
+            'hdr': self.hdr_var.get(),
+            'fps60': fps60,
+            'sub_format': sub_format,
+            'write_json': self.json_var.get(),
         }
 
 

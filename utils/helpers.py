@@ -130,7 +130,7 @@ def get_site_name(url):
 
 
 def is_playlist_url(url):
-    """Check if URL is a playlist URL."""
+    """Check if URL is a playlist or channel URL."""
     if not url:
         return False
     url = url.strip().lower()
@@ -143,6 +143,15 @@ def is_playlist_url(url):
         if 'youtu.be/' in url:
             return False
         return True
+    # YouTube channel / user / handle URLs download as playlists
+    if 'youtube.com' in url or 'music.youtube.com' in url:
+        if any(p in url for p in (
+            '/channel/', '/user/', '/c/',
+        )):
+            return True
+        # "@handle" user URLs (youtube.com/@handle)
+        if re.search(r'youtube\.com/@[\w.-]+', url):
+            return True
     return False
 
 

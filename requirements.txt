@@ -5,3 +5,4 @@ requests==2.34.2
 packaging==26.2
 imageio-ffmpeg==0.6.0
 pycryptodomex==3.23.0
+plyer==2.1.0
